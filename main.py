@@ -22,10 +22,13 @@ def encode_image_bytes(image_bytes):
 def analyze_chart_with_ai(image_bytes):
     base64_image = encode_image_bytes(image_bytes)
     
+    # Prompt thup thar: NO TRADE / WAIT hman khap tlat a ni
     prompt = (
-        "You are a binary options trading bot. Analyze the chart screenshot.\n"
-        "Respond ONLY with a JSON object containing 'direction' (BUY, SELL, or WAIT) and 'confidence' (0-100%).\n"
-        "Example output: {\"direction\": \"BUY\", \"confidence\": \"85%\"}"
+        "You are a strict 60-second binary options scalper. Analyze the chart screenshot.\n"
+        "You are FORBIDDEN from choosing 'WAIT' or 'NO TRADE'. You MUST pick a side.\n"
+        "Assess the current momentum and force a binary decision.\n"
+        "Respond ONLY with a JSON object containing 'direction' (MUST be either BUY or SELL) and 'confidence' (0-100%).\n"
+        "Example output: {\"direction\": \"BUY\", \"confidence\": \"78%\"}"
     )
 
     try:
@@ -41,13 +44,12 @@ def analyze_chart_with_ai(image_bytes):
                 }
             ],
             response_format={"type": "json_object"},
-            temperature=0.1
+            temperature=0.3 # Decision a her chhuah fiah nan temperature kan tlem tih san deuh
         )
         
         raw_text = response.choices.message.content.strip()
         return json.loads(raw_text)
     except Exception as e:
-        # Error text a thui luhei lova tawi tea siam nan
         return {"error": "AI Gateway timeout or invalid response"}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,23 +80,26 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         await status_message.delete()
 
-        # Key a lo chhiar dik loh thut pawha message lian duah lo lanna tur liahna
-        direction = str(result.get('direction', 'WAIT')).upper()
-        confidence = str(result.get('confidence', '70%'))
+        direction = str(result.get('direction', 'BUY')).upper()
+        confidence = str(result.get('confidence', '50%'))
 
-        # Safe response checking (Message is too long thup thakna)
-        if "BUY" in direction:
-            await update.message.reply_text(f"🟢 **NEXT CANDLE: BUY (CALL)**\n📈 **Confidence:** {confidence}\n🚀 *Signal her lut rawh!*")
-        elif "SELL" in direction:
-            await update.message.reply_text(f"🔴 **NEXT CANDLE: SELL (PUT)**\n📉 **Confidence:** {confidence}\n🔥 *Signal her lut rawh!*")
+        # Fallback mechanism: AI-in a hreve lo che a nih pawha BUY/SELL zawng hming chauh her chhuah luih tirna
+        if "SELL" in direction or "PUT" in direction:
+            await update.message.reply_text(
+                f"🔴 **DIRECTION: SELL (PUT)**\n"
+                f"📉 **Confidence:** {confidence}"
+            )
         else:
-            await update.message.reply_text(f"⚪ **NO TRADE (WAIT)**\n⏳ **Confidence:** {confidence}\n💤 *Nghak deuh rih rawh.*")
+            await update.message.reply_text(
+                f"🟢 **DIRECTION: BUY (CALL)**\n"
+                f"📈 **Confidence:** {confidence}"
+            )
 
     except Exception as e:
         await update.message.reply_text("❌ System Error: Please try again with a cleaner screenshot.")
 
 def main():
-    print("Bot is deploying final safe system...")
+    print("Bot is deploying binary forced direction system...")
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
@@ -103,3 +108,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+            
