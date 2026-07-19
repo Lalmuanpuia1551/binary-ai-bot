@@ -2,15 +2,15 @@ import os
 import io
 import base64
 import json
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 from openai import OpenAI
 
-# Render Environment Variables atanga chhiar tur
+# Environment Variables atanga chhiar tur
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-# AICredits hman nan base_url her rem a ngai (He lai hi a pawimawh ber)
+# AICredits Gateway
 ai_client = OpenAI(
     api_key=OPENAI_API_KEY,
     base_url="https://aicredits.in"
@@ -23,8 +23,8 @@ def analyze_chart_with_ai(image_bytes):
     base64_image = encode_image_bytes(image_bytes)
     
     prompt = (
-        "You are a 60-second binary options high-speed trading engine. "
-        "Analyze this chart snapshot mentally for candlestick psychology, SnR, and indicators.\n"
+        "You are a 60-second binary options scalper. "
+        "Mentally analyze candlestick psychology, SnR, and indicators.\n"
         "Provide a strict response in this JSON format only:\n"
         "{\n"
         "  \"direction\": \"BUY or SELL or WAIT\",\n"
@@ -34,7 +34,7 @@ def analyze_chart_with_ai(image_bytes):
 
     try:
         response = ai_client.chat.completions.create(
-            model="gpt-4o",  # AICredits-ah pawh gpt-4o a hman tlang theih
+            model="gpt-4o",
             messages=[
                 {
                     "role": "user",
@@ -51,6 +51,18 @@ def analyze_chart_with_ai(image_bytes):
     except Exception as e:
         return {"error": str(e)}
 
+# /start hmeh huna Upload Button rawn lanna tur
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Keyboard button mawi tak duanna
+    keyboard = [[KeyboardButton("📸 Upload Chart")]]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+    
+    await update.message.reply_text(
+        "👋 Fanaicharts QX Bot-ah hian lo hlawhtling takin lo lut rawh!\n\n"
+        "A hnuaia button zawn khân hmet la, i 1-minute chart screenshot kha va thawn tawp rawh le.",
+        reply_markup=reply_markup
+    )
+
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_message = await update.message.reply_text("🧠 Analyzing chart...")
     try:
@@ -61,36 +73,44 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         result = analyze_chart_with_ai(image_bytes)
         
-        # 'Analyzing...' status message hmet hlum rawh se
         await status_message.delete()
 
         if "error" in result:
-            await update.message.reply_text(f"❌ API Error: {result['error']}\nCheck if your AICredits wallet has balance.")
+            await update.message.reply_text(f"❌ API Error: {result['error']}")
             return
 
         direction = result['direction']
         confidence = result['confidence']
 
-        # Animated Emoji Sticker leh prediction thawn chhuah dan tur
+        # Message is too long error thup nan emoji chiang tak leh text tawi chauh kan hman tir ang
         if direction == "BUY":
-            await update.message.reply_sticker("CAACAgIAAxkBAAEExbhmX62vAAEg4XyP_9l13_S8mB6D6wACFwADUr6DE6Fp-H-T0oVyNQQ")
-            await update.message.reply_text(f"🟢 **NEXT CANDLE: BUY (CALL)**\n⚡ Confidence: {confidence}", parse_mode="Markdown")
+            await update.message.reply_text(
+                f"🟢 **NEXT CANDLE: BUY (CALL)**\n"
+                f"📈 **Confidence:** {confidence}\n"
+                f"🚀 *Signal her lut nghal rawh!*"
+            )
         elif direction == "SELL":
-            await update.message.reply_sticker("CAACAgIAAxkBAAEExbpmX63BAAEgAnj7q7vH7l4S0Wk89gACGQADUr6DEzK6Sg7bL7GfNQQ")
-            await update.message.reply_text(f"🔴 **NEXT CANDLE: SELL (PUT)**\n⚡ Confidence: {confidence}", parse_mode="Markdown")
+            await update.message.reply_text(
+                f"🔴 **NEXT CANDLE: SELL (PUT)**\n"
+                f"📉 **Confidence:** {confidence}\n"
+                f"🔥 *Signal her lut nghal rawh!*"
+            )
         else:
-            await update.message.reply_sticker("CAACAgIAAxkBAAEExbxmX63TAAEgAdHq7vH7l4S0Wk89gACHQADUr6DEzK6Sg7bL7GfNQQ")
-            await update.message.reply_text(f"⚪ **NO TRADE (WAIT)**\n⚡ Confidence: {confidence}", parse_mode="Markdown")
+            await update.message.reply_text(
+                f"⚪ **NO TRADE (WAIT)**\n"
+                f"⏳ **Confidence:** {confidence}\n"
+                f"💤 *Market fiah rih lo, nghak deuh rawh.*"
+            )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Server Error: {str(e)}")
+        await update.message.reply_text(f"❌ System Error: {str(e)}")
 
 def main():
-    print("Bot is up and running via AICredits Gateway...")
+    print("Bot is updating with menu button...")
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-  
